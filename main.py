@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Object Detector v1.0
-Детекция объектов (человек, чашка, телефон) в реальном времени
-с использованием веб-камеры и YOLOv8
+Object detection (person, cup, phone) in real-time
+using webcam and YOLOv8
 """
 
 import cv2
@@ -16,9 +16,9 @@ from pathlib import Path
 from collections import deque
 from typing import Optional, Dict, List, Tuple, Any
 
-# Проверка и установка зависимостей
+# Check and install dependencies
 def check_dependencies():
-    """Проверка наличия необходимых библиотек"""
+    """Check for required libraries"""
     missing = []
     
     try:
@@ -42,8 +42,8 @@ def check_dependencies():
         missing.append('PyYAML')
     
     if missing:
-        print(f"❌ Отсутствуют библиотеки: {', '.join(missing)}")
-        print(f"   Установите их командой: pip install {' '.join(missing)}")
+        print(f"❌ Missing libraries: {', '.join(missing)}")
+        print(f"   Install with command: pip install {' '.join(missing)}")
         sys.exit(1)
 
 check_dependencies()
@@ -53,20 +53,20 @@ import yaml
 
 
 class Colors:
-    """Цветовая схема для классов объектов"""
-    # BGR формат для OpenCV
-    PERSON = (0, 255, 0)      # Зелёный
-    CUP = (255, 150, 0)       # Синий
-    PHONE = (0, 165, 255)     # Оранжевый
+    """Color scheme for object classes"""
+    # BGR format for OpenCV
+    PERSON = (0, 255, 0)      # Green
+    CUP = (255, 150, 0)       # Blue
+    PHONE = (0, 165, 255)     # Orange
     
-    # Цвета интерфейса
-    TEXT_BG = (0, 0, 0)       # Чёрный фон
-    TEXT_FG = (255, 255, 255) # Белый текст
-    STATS_BG = (40, 40, 40)   # Тёмно-серый
+    # UI colors
+    TEXT_BG = (0, 0, 0)       # Black background
+    TEXT_FG = (255, 255, 255) # White text
+    STATS_BG = (40, 40, 40)   # Dark gray
     
     @classmethod
     def get_color(cls, class_id: int) -> Tuple[int, int, int]:
-        """Получить цвет по ID класса"""
+        """Get color by class ID"""
         color_map = {
             0: cls.PERSON,   # person
             41: cls.CUP,     # cup
@@ -76,14 +76,14 @@ class Colors:
 
 
 class FPSCounter:
-    """Счётчик FPS с усреднением"""
+    """FPS counter with averaging"""
     
     def __init__(self, avg_frames: int = 30):
         self.times = deque(maxlen=avg_frames)
         self.last_time = time.time()
     
     def update(self) -> float:
-        """Обновить и получить текущий FPS"""
+        """Update and get current FPS"""
         current_time = time.time()
         self.times.append(current_time - self.last_time)
         self.last_time = current_time
@@ -94,7 +94,7 @@ class FPSCounter:
 
 
 class Config:
-    """Менеджер конфигурации"""
+    """Configuration manager"""
     
     DEFAULT_CONFIG = {
         'camera': {
@@ -136,27 +136,27 @@ class Config:
     def __init__(self, config_path: Optional[str] = None, mode: Optional[str] = None):
         self.config = self.DEFAULT_CONFIG.copy()
         
-        # Загрузка из файла
+        # Load from file
         if config_path and os.path.exists(config_path):
             self._load_from_file(config_path)
         
-        # Применение режима
+        # Apply mode
         if mode and mode in self.MODES:
             self._apply_mode(mode)
     
     def _load_from_file(self, path: str):
-        """Загрузка конфигурации из YAML файла"""
+        """Load configuration from YAML file"""
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 loaded = yaml.safe_load(f)
                 if loaded:
                     self._deep_update(self.config, loaded)
-            print(f"[INFO] Конфигурация загружена из {path}")
+            print(f"[INFO] Configuration loaded from {path}")
         except Exception as e:
-            print(f"[WARN] Ошибка загрузки конфига: {e}")
+            print(f"[WARN] Config load error: {e}")
     
     def _deep_update(self, base: dict, update: dict):
-        """Рекурсивное обновление словаря"""
+        """Recursive dictionary update"""
         for key, value in update.items():
             if key in base and isinstance(base[key], dict) and isinstance(value, dict):
                 self._deep_update(base[key], value)
@@ -164,13 +164,13 @@ class Config:
                 base[key] = value
     
     def _apply_mode(self, mode: str):
-        """Применение предустановленного режима"""
+        """Apply preset mode"""
         if mode in self.MODES:
             self._deep_update(self.config, self.MODES[mode])
-            print(f"[INFO] Применён режим: {mode}")
+            print(f"[INFO] Applied mode: {mode}")
     
     def get(self, *keys):
-        """Получить значение по ключам"""
+        """Get value by keys"""
         value = self.config
         for key in keys:
             value = value.get(key, {})
@@ -178,13 +178,13 @@ class Config:
 
 
 class ObjectDetector:
-    """Основной класс детектора объектов"""
+    """Main object detector class"""
     
-    # Названия классов на русском
+    # Class names in English
     CLASS_NAMES = {
-        0: 'Человек',
-        41: 'Чашка',
-        67: 'Телефон'
+        0: 'Person',
+        41: 'Cup',
+        67: 'Phone'
     }
     
     def __init__(self, config: Config):
@@ -193,157 +193,157 @@ class ObjectDetector:
         self.cap: Optional[cv2.VideoCapture] = None
         self.fps_counter = FPSCounter()
         
-        # Состояние приложения
+        # Application state
         self.is_running = True
         self.is_paused = False
         self.show_fps = config.get('display', 'show_fps')
         self.show_confidence = config.get('display', 'show_confidence')
         self.show_stats = config.get('display', 'show_stats')
         
-        # Статистика
+        # Statistics
         self.detection_stats: Dict[int, int] = {0: 0, 41: 0, 67: 0}
         self.last_frame: Optional[np.ndarray] = None
         
-        # Папка для скриншотов
+        # Screenshots directory
         self.screenshots_dir = Path('screenshots')
         self.screenshots_dir.mkdir(exist_ok=True)
         
-        # Параметры отображения
+        # Display parameters
         self.box_thickness = config.get('display', 'box_thickness')
         self.font_scale = config.get('display', 'font_scale')
         self.target_classes = config.get('detection', 'classes')
         self.confidence_threshold = config.get('detection', 'confidence')
     
     def print_banner(self):
-        """Вывод приветственного баннера"""
+        """Print welcome banner"""
         banner = """
 ╔═══════════════════════════════════════════╗
 ║       🎯 Object Detector v1.0             ║
-║       Для ноутбука с веб-камерой          ║
+║       For laptop with webcam              ║
 ╠═══════════════════════════════════════════╣
-║  Детектируемые объекты:                   ║
-║    🟢 Человек (person)                    ║
-║    🔵 Чашка (cup)                         ║
-║    🟠 Телефон (cell phone)                ║
+║  Detected objects:                        ║
+║    🟢 Person (person)                     ║
+║    🔵 Cup (cup)                           ║
+║    🟠 Phone (cell phone)                  ║
 ╠═══════════════════════════════════════════╣
-║  Управление:                              ║
-║    ПРОБЕЛ  - Старт/Пауза детекции        ║
-║    S       - Сохранить скриншот          ║
-║    F       - Показать/скрыть FPS         ║
-║    C       - Показать/скрыть confidence  ║
-║    I       - Показать/скрыть статистику  ║
-║    Q / ESC - Выход                       ║
+║  Controls:                                ║
+║    SPACE   - Start/Pause detection        ║
+║    S       - Save screenshot              ║
+║    F       - Show/hide FPS                ║
+║    C       - Show/hide confidence         ║
+║    I       - Show/hide statistics         ║
+║    Q / ESC - Exit                         ║
 ╚═══════════════════════════════════════════╝
 """
         print(banner)
     
     def initialize(self) -> bool:
-        """Инициализация всех компонентов"""
-        print("\n[INFO] Инициализация...")
+        """Initialize all components"""
+        print("\n[INFO] Initialization...")
         
-        # 1. Проверка и загрузка модели
+        # 1. Check and load model
         if not self._load_model():
             return False
         
-        # 2. Инициализация камеры
+        # 2. Initialize camera
         if not self._init_camera():
             return False
         
-        # 3. Определение ресурсов
+        # 3. Detect resources
         self._detect_resources()
         
-        print("[INFO] ✅ Инициализация завершена успешно!\n")
+        print("[INFO] ✅ Initialization completed successfully!\n")
         return True
     
     def _load_model(self) -> bool:
-        """Загрузка модели YOLO"""
+        """Load YOLO model"""
         model_name = self.config.get('detection', 'model')
-        print(f"[INFO] Загрузка модели {model_name}...")
+        print(f"[INFO] Loading model {model_name}...")
         
         try:
-            # Прогресс-бар (эмуляция)
-            self._print_progress("Загрузка модели", 0)
+            # Progress bar (emulation)
+            self._print_progress("Loading model", 0)
             
             self.model = YOLO(model_name)
             
-            self._print_progress("Загрузка модели", 100)
+            self._print_progress("Loading model", 100)
             print()
             
-            # Информация о модели
+            # Model info
             model_path = Path(model_name)
             if model_path.exists():
                 size_mb = model_path.stat().st_size / (1024 * 1024)
-                print(f"[INFO] Модель загружена ({size_mb:.1f} MB)")
+                print(f"[INFO] Model loaded ({size_mb:.1f} MB)")
             else:
-                print(f"[INFO] Модель загружена (скачана автоматически)")
+                print(f"[INFO] Model loaded (downloaded automatically)")
             
             return True
             
         except Exception as e:
-            print(f"\n[ERROR] Ошибка загрузки модели: {e}")
+            print(f"\n[ERROR] Model load error: {e}")
             return False
     
     def _init_camera(self) -> bool:
-        """Инициализация веб-камеры"""
+        """Initialize webcam"""
         camera_index = self.config.get('camera', 'index')
         width = self.config.get('camera', 'width')
         height = self.config.get('camera', 'height')
         fps = self.config.get('camera', 'fps')
         
-        print(f"[INFO] Подключение к камере {camera_index}...")
+        print(f"[INFO] Connecting to camera {camera_index}...")
         
-        # Попытка подключения к камере
+        # Try to connect to camera
         self.cap = cv2.VideoCapture(camera_index)
         
         if not self.cap.isOpened():
-            # Попробуем другие индексы
+            # Try other indices
             for idx in range(3):
                 if idx != camera_index:
                     self.cap = cv2.VideoCapture(idx)
                     if self.cap.isOpened():
-                        print(f"[INFO] Камера найдена на индексе {idx}")
+                        print(f"[INFO] Camera found at index {idx}")
                         break
         
         if not self.cap.isOpened():
-            print("[ERROR] ❌ Веб-камера не найдена!")
-            print("        Проверьте подключение камеры")
+            print("[ERROR] ❌ Webcam not found!")
+            print("        Check camera connection")
             return False
         
-        # Настройка параметров камеры
+        # Set camera parameters
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.cap.set(cv2.CAP_PROP_FPS, fps)
         
-        # Получение реальных параметров
+        # Get actual parameters
         actual_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         actual_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         actual_fps = int(self.cap.get(cv2.CAP_PROP_FPS))
         
-        print(f"[INFO] ✅ Камера подключена: {actual_width}x{actual_height} @ {actual_fps}fps")
+        print(f"[INFO] ✅ Camera connected: {actual_width}x{actual_height} @ {actual_fps}fps")
         
         return True
     
     def _detect_resources(self):
-        """Определение доступных ресурсов"""
+        """Detect available resources"""
         import torch
         
         if torch.cuda.is_available():
             gpu_name = torch.cuda.get_device_name(0)
-            print(f"[INFO] GPU обнаружен: {gpu_name}")
-            print("[INFO] Режим: CUDA (GPU)")
+            print(f"[INFO] GPU detected: {gpu_name}")
+            print("[INFO] Mode: CUDA (GPU)")
         else:
-            print("[INFO] GPU не обнаружен")
-            print("[INFO] Режим: CPU (ожидаемый FPS: 10-20)")
+            print("[INFO] GPU not detected")
+            print("[INFO] Mode: CPU (expected FPS: 10-20)")
     
     def _print_progress(self, label: str, percent: int):
-        """Вывод прогресс-бара"""
+        """Print progress bar"""
         bar_length = 30
         filled = int(bar_length * percent / 100)
         bar = '█' * filled + '░' * (bar_length - filled)
         print(f"\r[INFO] {label}: [{bar}] {percent}%", end='', flush=True)
     
     def detect(self, frame: np.ndarray) -> List[Dict[str, Any]]:
-        """Выполнение детекции объектов"""
+        """Perform object detection"""
         results = self.model(
             frame,
             conf=self.confidence_threshold,
@@ -362,10 +362,10 @@ class ObjectDetector:
             for i in range(len(boxes)):
                 box = boxes[i]
                 
-                # Координаты
+                # Coordinates
                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
                 
-                # Класс и уверенность
+                # Class and confidence
                 class_id = int(box.cls[0].cpu().numpy())
                 confidence = float(box.conf[0].cpu().numpy())
                 
@@ -379,10 +379,10 @@ class ObjectDetector:
         return detections
     
     def draw_detections(self, frame: np.ndarray, detections: List[Dict]) -> np.ndarray:
-        """Отрисовка результатов детекции"""
+        """Draw detection results"""
         overlay = frame.copy()
         
-        # Сброс статистики
+        # Reset statistics
         self.detection_stats = {0: 0, 41: 0, 67: 0}
         
         for det in detections:
@@ -391,27 +391,27 @@ class ObjectDetector:
             class_name = det['class_name']
             confidence = det['confidence']
             
-            # Обновление статистики
+            # Update statistics
             self.detection_stats[class_id] = self.detection_stats.get(class_id, 0) + 1
             
-            # Цвет для класса
+            # Color for class
             color = Colors.get_color(class_id)
             
             # Bounding box
             cv2.rectangle(overlay, (x1, y1), (x2, y2), color, self.box_thickness)
             
-            # Подпись
+            # Label
             if self.show_confidence:
                 label = f"{class_name}: {confidence*100:.0f}%"
             else:
                 label = class_name
             
-            # Размер текста
+            # Text size
             (text_width, text_height), baseline = cv2.getTextSize(
                 label, cv2.FONT_HERSHEY_SIMPLEX, self.font_scale, 2
             )
             
-            # Фон для текста
+            # Text background
             cv2.rectangle(
                 overlay,
                 (x1, y1 - text_height - 10),
@@ -420,7 +420,7 @@ class ObjectDetector:
                 -1
             )
             
-            # Текст
+            # Text
             cv2.putText(
                 overlay,
                 label,
@@ -431,20 +431,20 @@ class ObjectDetector:
                 2
             )
         
-        # Смешивание с оригиналом для полупрозрачности
+        # Blend with original for transparency
         cv2.addWeighted(overlay, 0.85, frame, 0.15, 0, frame)
         
         return frame
     
     def draw_stats(self, frame: np.ndarray, fps: float) -> np.ndarray:
-        """Отрисовка статистики"""
+        """Draw statistics"""
         h, w = frame.shape[:2]
         
-        # Панель статистики
+        # Stats panel
         if self.show_stats:
             stats_height = 120
             
-            # Полупрозрачный фон
+            # Semi-transparent background
             overlay = frame.copy()
             cv2.rectangle(overlay, (10, 10), (220, stats_height), Colors.STATS_BG, -1)
             cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
@@ -458,13 +458,13 @@ class ObjectDetector:
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, Colors.TEXT_FG, 2)
                 y_offset += 25
             
-            # Количество объектов
+            # Object count
             total_objects = sum(self.detection_stats.values())
-            cv2.putText(frame, f"Объектов: {total_objects}", (20, y_offset),
+            cv2.putText(frame, f"Objects: {total_objects}", (20, y_offset),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, Colors.TEXT_FG, 2)
             y_offset += 25
             
-            # Детали по классам
+            # Details by class
             for class_id, count in self.detection_stats.items():
                 if count > 0:
                     name = self.CLASS_NAMES[class_id]
@@ -473,170 +473,170 @@ class ObjectDetector:
                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
                     y_offset += 20
         
-        # Индикатор паузы
+        # Pause indicator
         if self.is_paused:
-            pause_text = "⏸ ПАУЗА"
+            pause_text = "PAUSE"
             text_size = cv2.getTextSize(pause_text, cv2.FONT_HERSHEY_SIMPLEX, 1.2, 3)[0]
             x = (w - text_size[0]) // 2
             y = h // 2
             
-            # Фон
+            # Background
             cv2.rectangle(frame, (x - 20, y - 40), (x + text_size[0] + 20, y + 20),
                          Colors.TEXT_BG, -1)
             cv2.putText(frame, pause_text, (x, y),
                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
         
-        # Подсказка управления внизу
-        help_text = "SPACE: Пауза | S: Скриншот | Q: Выход"
+        # Control hints at bottom
+        help_text = "SPACE: Pause | S: Screenshot | Q: Exit"
         cv2.putText(frame, help_text, (10, h - 15),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, Colors.TEXT_FG, 1)
         
         return frame
     
     def save_screenshot(self, frame: np.ndarray):
-        """Сохранение скриншота"""
+        """Save screenshot"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = self.screenshots_dir / f"detection_{timestamp}.jpg"
         
         cv2.imwrite(str(filename), frame)
-        print(f"[INFO] 📷 Скриншот сохранён: {filename}")
+        print(f"[INFO] 📷 Screenshot saved: {filename}")
     
     def handle_key(self, key: int) -> bool:
-        """Обработка нажатий клавиш"""
-        if key == ord('q') or key == ord('Q') or key == 27:  # Q или ESC
-            print("\n[INFO] Выход из программы...")
+        """Handle key presses"""
+        if key == ord('q') or key == ord('Q') or key == 27:  # Q or ESC
+            print("\n[INFO] Exiting program...")
             return False
         
-        elif key == ord(' '):  # Пробел - пауза
+        elif key == ord(' '):  # Space - pause
             self.is_paused = not self.is_paused
-            status = "⏸ Пауза" if self.is_paused else "▶ Продолжение"
+            status = "⏸ Pause" if self.is_paused else "▶ Resume"
             print(f"[INFO] {status}")
         
-        elif key == ord('s') or key == ord('S'):  # Скриншот
+        elif key == ord('s') or key == ord('S'):  # Screenshot
             if self.last_frame is not None:
                 self.save_screenshot(self.last_frame)
         
-        elif key == ord('f') or key == ord('F'):  # Переключение FPS
+        elif key == ord('f') or key == ord('F'):  # Toggle FPS
             self.show_fps = not self.show_fps
-            print(f"[INFO] FPS: {'показан' if self.show_fps else 'скрыт'}")
+            print(f"[INFO] FPS: {'shown' if self.show_fps else 'hidden'}")
         
-        elif key == ord('c') or key == ord('C'):  # Переключение confidence
+        elif key == ord('c') or key == ord('C'):  # Toggle confidence
             self.show_confidence = not self.show_confidence
-            print(f"[INFO] Confidence: {'показан' if self.show_confidence else 'скрыт'}")
+            print(f"[INFO] Confidence: {'shown' if self.show_confidence else 'hidden'}")
         
-        elif key == ord('i') or key == ord('I'):  # Переключение статистики
+        elif key == ord('i') or key == ord('I'):  # Toggle statistics
             self.show_stats = not self.show_stats
-            print(f"[INFO] Статистика: {'показана' if self.show_stats else 'скрыта'}")
+            print(f"[INFO] Statistics: {'shown' if self.show_stats else 'hidden'}")
         
         return True
     
     def run(self):
-        """Основной цикл работы"""
+        """Main execution loop"""
         self.print_banner()
         
         if not self.initialize():
-            print("\n[ERROR] Инициализация не удалась. Выход.")
+            print("\n[ERROR] Initialization failed. Exiting.")
             return
         
-        print("[INFO] ▶ Детекция запущена!")
-        print("[INFO] Для управления используйте горячие клавиши\n")
+        print("[INFO] ▶ Detection started!")
+        print("[INFO] Use hotkeys for control\n")
         
         window_name = "Object Detector - YOLOv8"
         cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
         
         try:
             while self.is_running:
-                # Чтение кадра
+                # Read frame
                 ret, frame = self.cap.read()
                 
                 if not ret:
-                    print("[WARN] Не удалось получить кадр с камеры")
+                    print("[WARN] Failed to get frame from camera")
                     continue
                 
-                # Зеркальное отражение для удобства
+                # Mirror flip for convenience
                 frame = cv2.flip(frame, 1)
                 
-                # Детекция (если не на паузе)
+                # Detection (if not paused)
                 if not self.is_paused:
                     detections = self.detect(frame)
                     frame = self.draw_detections(frame, detections)
                 else:
-                    # На паузе используем последние детекции
+                    # On pause use last detections
                     detections = []
                 
-                # Обновление FPS
+                # Update FPS
                 fps = self.fps_counter.update()
                 
-                # Отрисовка статистики
+                # Draw statistics
                 frame = self.draw_stats(frame, fps)
                 
-                # Сохранение последнего кадра для скриншота
+                # Save last frame for screenshot
                 self.last_frame = frame.copy()
                 
-                # Отображение
+                # Display
                 cv2.imshow(window_name, frame)
                 
-                # Обработка клавиш
+                # Handle keys
                 key = cv2.waitKey(1) & 0xFF
                 if not self.handle_key(key):
                     break
         
         except KeyboardInterrupt:
-            print("\n[INFO] Прервано пользователем (Ctrl+C)")
+            print("\n[INFO] Interrupted by user (Ctrl+C)")
         
         finally:
             self.cleanup()
     
     def cleanup(self):
-        """Освобождение ресурсов"""
-        print("[INFO] Освобождение ресурсов...")
+        """Release resources"""
+        print("[INFO] Releasing resources...")
         
         if self.cap is not None:
             self.cap.release()
         
         cv2.destroyAllWindows()
-        print("[INFO] ✅ Готово. До свидания!")
+        print("[INFO] ✅ Done. Goodbye!")
 
 
 def parse_arguments():
-    """Парсинг аргументов командной строки"""
+    """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="Object Detector - Детекция объектов с веб-камеры",
+        description="Object Detector - Object detection with webcam",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Примеры использования:
-  python main.py                    # Запуск с настройками по умолчанию
-  python main.py --fast             # Быстрый режим (низкое качество)
-  python main.py --accurate         # Точный режим (высокое качество)
-  python main.py --config my.yaml   # Использовать свой конфиг
+Usage examples:
+  python main.py                    # Run with default settings
+  python main.py --fast             # Fast mode (low quality)
+  python main.py --accurate         # Accurate mode (high quality)
+  python main.py --config my.yaml   # Use custom config
         """
     )
     
     parser.add_argument('--config', '-c', type=str, default='config.yaml',
-                       help='Путь к файлу конфигурации (по умолчанию: config.yaml)')
+                       help='Path to config file (default: config.yaml)')
     
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument('--fast', action='store_true',
-                           help='Быстрый режим (320x240, низкий порог)')
+                           help='Fast mode (320x240, low threshold)')
     mode_group.add_argument('--balanced', action='store_true',
-                           help='Сбалансированный режим (по умолчанию)')
+                           help='Balanced mode (default)')
     mode_group.add_argument('--accurate', action='store_true',
-                           help='Точный режим (1280x720, высокий порог)')
+                           help='Accurate mode (1280x720, high threshold)')
     
     parser.add_argument('--camera', '-cam', type=int, default=None,
-                       help='Индекс камеры (по умолчанию: 0)')
+                       help='Camera index (default: 0)')
     
     parser.add_argument('--confidence', '-conf', type=float, default=None,
-                       help='Порог уверенности (0.0-1.0)')
+                       help='Confidence threshold (0.0-1.0)')
     
     return parser.parse_args()
 
 
 def main():
-    """Точка входа"""
+    """Entry point"""
     args = parse_arguments()
     
-    # Определение режима
+    # Determine mode
     mode = None
     if args.fast:
         mode = 'fast'
@@ -645,17 +645,17 @@ def main():
     elif args.balanced:
         mode = 'balanced'
     
-    # Загрузка конфигурации
+    # Load configuration
     config = Config(args.config, mode)
     
-    # Переопределение из аргументов командной строки
+    # Override from command line arguments
     if args.camera is not None:
         config.config['camera']['index'] = args.camera
     
     if args.confidence is not None:
         config.config['detection']['confidence'] = args.confidence
     
-    # Запуск детектора
+    # Start detector
     detector = ObjectDetector(config)
     detector.run()
 
