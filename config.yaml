@@ -1,0 +1,26 @@
+# Настройки камеры
+camera:
+  index: 0 # Индекс камеры (0 - встроенная)
+  width: 640 # Ширина кадра
+  height: 480 # Высота кадра
+  fps: 30 # Целевой FPS камеры
+
+# Настройки детекции
+detection:
+  model: yolov8n.pt # Модель (n/s/m/l/x)
+  confidence: 0.5 # Порог уверенности
+  classes: [0, 41, 67] # person, cup, cell phone
+
+# Настройки отображения
+display:
+  show_fps: true # Показывать FPS
+  show_confidence: true # Показывать проценты
+  show_stats: true # Показывать статистику
+  box_thickness: 2 # Толщина рамок
+  font_scale: 0.6 # Размер шрифта
+
+# Режимы работы
+# fast: 320x240, conf=0.4
+# balanced: 640x480, conf=0.5
+# accurate: 1280x720, conf=0.6
+mode: balanced
