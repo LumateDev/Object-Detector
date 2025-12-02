@@ -68,14 +68,19 @@ python main.py
 ## ⚙️ Режимы работы
 
 ```bash
-# Быстрый режим (для слабых ноутбуков)
 python main.py --fast
 
-# Сбалансированный режим (по умолчанию)
 python main.py --balanced
 
-# Точный режим (для мощных ПК)
 python main.py --accurate
+
+python main.py --very-accurate
+
+python main.py --ultra-accurate
+
+python main.py --high-res-accurate
+
+python main.py --high-conf-accurate
 ```
 
 ## 📁 Структура проекта

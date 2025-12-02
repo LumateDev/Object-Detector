@@ -1,26 +1,83 @@
-# Настройки камеры
 camera:
-  index: 0 # Индекс камеры (0 - встроенная)
-  width: 640 # Ширина кадра
-  height: 480 # Высота кадра
-  fps: 30 # Целевой FPS камеры
+  index: 0
+  width: 640
+  height: 480
+  fps: 30
 
-# Настройки детекции
 detection:
-  model: yolov8n.pt # Модель (n/s/m/l/x)
-  confidence: 0.5 # Порог уверенности
+  model: "yolov8n.pt"
+  confidence: 0.5
   classes: [0, 41, 67] # person, cup, cell phone
 
-# Настройки отображения
 display:
-  show_fps: true # Показывать FPS
-  show_confidence: true # Показывать проценты
-  show_stats: true # Показывать статистику
-  box_thickness: 2 # Толщина рамок
-  font_scale: 0.6 # Размер шрифта
+  show_fps: True
+  show_confidence: True
+  show_stats: True
+  box_thickness: 2
+  font_scale: 0.6
+  window_name: "Object Detector - YOLOv8"
 
-# Режимы работы
-# fast: 320x240, conf=0.4
-# balanced: 640x480, conf=0.5
-# accurate: 1280x720, conf=0.6
-mode: balanced
+mode_presets:
+  fast:
+    camera:
+      width: 320
+      height: 240
+    detection:
+      confidence: 0.4
+  balanced:
+    camera:
+      width: 640
+      height: 480
+    detection:
+      confidence: 0.5
+  accurate:
+    camera:
+      width: 1280
+      height: 720
+    detection:
+      confidence: 0.6
+  very_accurate:
+    camera:
+      width: 1280
+      height: 720
+    detection:
+      model: "yolov8m.pt"
+      confidence: 0.65
+  ultra_accurate:
+    camera:
+      width: 1920
+      height: 1080
+    detection:
+      model: "yolov8x.pt"
+      confidence: 0.75
+  high_res_accurate:
+    camera:
+      width: 1920
+      height: 1080
+    # detection:
+    #   # model: 'yolov8n.pt'
+    #   # confidence: 0.5
+  high_conf_accurate:
+    detection:
+      confidence: 0.75
+    # camera:
+    #   # width: 640
+    #   # height: 480
+
+# Screenshots
+screenshots_dir: "screenshots"
+
+# UI Colors (BGR format)
+colors:
+  person: [0, 255, 0] # Green
+  cup: [255, 150, 0] # Blue
+  phone: [0, 165, 255] # Orange
+  text_bg: [0, 0, 0] # Black
+  text_fg: [255, 255, 255] # White
+  stats_bg: [40, 40, 40] # Dark Gray
+
+# Class names
+class_names:
+  0: "Person"
+  41: "Cup"
+  67: "Phone"
